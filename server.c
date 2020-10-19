@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <netinet/in.h>
 #include <string.h>
+#include <sys/wait.h>
 #define PORT 8080
 int main(int argc, char const *argv[])
 {
@@ -12,7 +13,7 @@ int main(int argc, char const *argv[])
     struct sockaddr_in address;
     int opt = 1;
     int addrlen = sizeof(address);
-    char buffer[1024] = {0};//102 bit
+    char buffer[102] = {0};//102 bit
     char *hello = "Hello from server";
 
     printf("execve=0x%p\n", execve);
@@ -25,7 +26,7 @@ int main(int argc, char const *argv[])
     }
 
     // Forcefully attaching socket to the port 8080
-    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR  | SO_REUSEPORT, 
+    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, 
                                                   &opt, sizeof(opt)))
     {
         perror("setsockopt");
@@ -56,15 +57,24 @@ int main(int argc, char const *argv[])
 
     pid_t pid = fork();
 	if (pid == 0){
-		printf("Child Process start\n");
-		setuid(65534);
-        printf("New uid: %d\n", getuid());
+		if(setuid(65534)==-1){
+            perror("Initial UID Failed");
+            exit(EXIT_FAILURE);
+        }
+        else{
+        printf("Child Process start\n");
+        printf("UID: %d\n", getuid());
 		valread = read( new_socket , buffer, 1024); 
 		printf("%s\n",buffer ); 
 		send(new_socket , hello , strlen(hello) , 0 ); 
 		printf("Hello message sent\n"); 
 		printf("Child process Done\n");
+        }
 	}
+    else if(pid < 0){
+        perror("Fork Failed");
+        exit(EXIT_FAILURE);
+    }
 	// Parent Process
 	else{
 		int status = 0;
